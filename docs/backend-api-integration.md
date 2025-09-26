@@ -4,6 +4,8 @@
 
 This document provides the complete integration specifications for connecting your frontend application to the SQL Voice Query backend service.
 
+**✨ NEW: AI Image Generation** - The backend now generates contextual images based on voice transcriptions using AI-powered image description generation!
+
 ## Base Configuration
 
 **Service URL:** `https://svc-01k6400s2fbrvn8a8ngpr6h8jv.01k3973ws804nrh2fzmcqjcsvq.lmapp.run`
@@ -95,7 +97,9 @@ fetch('https://svc-01k6400s2fbrvn8a8ngpr6h8jv.01k3973ws804nrh2fzmcqjcsvq.lmapp.r
     }
   ],
   "executionTime": "125ms",
-  "sessionId": "1727389443653"
+  "sessionId": "1727389443653",
+  "imagePrompt": "Professional business dashboard showing customer analytics with modern charts and graphs displaying customer data in a clean, corporate environment",
+  "generatedImageUrl": "https://picsum.photos/800/600?random=12345&blur=1&grayscale"
 }
 ```
 
@@ -126,7 +130,7 @@ fetch('https://svc-01k6400s2fbrvn8a8ngpr6h8jv.01k3973ws804nrh2fzmcqjcsvq.lmapp.r
 
 ## Audio File Requirements
 
-**Supported Formats:** MP3, WAV, OGG, M4A
+**Supported Formats:** MP3, WAV, OGG, M4A, WebM
 **Max File Size:** 10MB (recommended)
 **Sample Rate:** Any (16kHz+ recommended for best results)
 **Channels:** Mono or Stereo
@@ -145,6 +149,8 @@ interface QueryResponse {
   executionTime?: string;
   sessionId?: string;
   error?: string;
+  imagePrompt?: string;
+  generatedImageUrl?: string;
 }
 ```
 

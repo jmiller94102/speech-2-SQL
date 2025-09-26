@@ -40,7 +40,7 @@ export default class extends Service<Env> {
       });
     });
 
-    // Voice query endpoint - simplified for demo
+    // Voice query endpoint - real AI processing
     this.app.post('/query', async (c: any) => {
       try {
         const body = await c.req.parseBody();
@@ -53,23 +53,111 @@ export default class extends Service<Env> {
           }, 400);
         }
 
-        // Mock response for demo
-        return c.json({
+        // Validate audio file type
+        const supportedTypes = [
+          'audio/mp3', 'audio/mpeg',
+          'audio/wav', 'audio/wave', 'audio/x-wav',
+          'audio/ogg', 'audio/ogg;codecs=opus',
+          'audio/m4a', 'audio/mp4',
+          'audio/webm', 'audio/webm;codecs=opus'
+        ];
+
+        const fileType = audioFile.type || '';
+        console.log('Received audio file:', { type: fileType, size: audioFile.size });
+
+        // Accept the file regardless of MIME type for now, but log it
+        if (fileType && !supportedTypes.some(type => fileType.includes(type.split(';')[0]))) {
+          console.warn('Unsupported audio type received:', fileType);
+          // Continue processing anyway - the voice processor should handle it
+        }
+
+        const sessionId = Date.now().toString();
+        const startTime = Date.now();
+
+        // Convert audio file to buffer with error handling
+        let audioBuffer;
+        try {
+          const arrayBuffer = await audioFile.arrayBuffer();
+          audioBuffer = Buffer.from(arrayBuffer);
+          console.log('Audio buffer created successfully:', { size: audioBuffer.length });
+        } catch (bufferError) {
+          console.error('Failed to create audio buffer:', bufferError);
+          return c.json({
+            success: false,
+            error: 'Failed to process audio file'
+          }, 400);
+        }
+
+        // Process audio with intelligent voice processing
+        const voiceProcessor = this.env.VOICE_PROCESSOR.get(sessionId as any);
+        const voiceResult = await voiceProcessor.processAudio(audioBuffer, sessionId);
+
+        if (!voiceResult.success) {
+          return c.json({
+            success: false,
+            error: voiceResult.error || 'Voice processing failed'
+          }, 500);
+        }
+
+        // Check user intent and execute appropriate processing
+        const userIntent = voiceResult.intent || 'both';
+
+        let queryResult = null;
+        if (userIntent === 'sql' || userIntent === 'both') {
+          // Generate SQL and execute query with real AI
+          queryResult = await this.env.DATABASE_MANAGER.executeQuery(voiceResult.transcribedText || '', sessionId, userIntent);
+
+          if (!queryResult.success) {
+            return c.json({
+              success: false,
+              error: queryResult.error || 'Query execution failed'
+            }, 500);
+          }
+        }
+
+        const totalExecutionTime = Date.now() - startTime;
+
+        // Parse results back to objects for frontend
+        let results = [];
+        if (queryResult && queryResult.results) {
+          try {
+            results = JSON.parse(queryResult.results);
+          } catch (e) {
+            results = [];
+          }
+        }
+
+        // Build response based on intent
+        const response: any = {
           success: true,
-          transcription: "Show me all customers",
-          sql: "SELECT * FROM customers LIMIT 10",
-          results: [
-            { id: 1, name: "John Doe", email: "john@example.com", total_spent: 1250.00 },
-            { id: 2, name: "Jane Smith", email: "jane@example.com", total_spent: 890.50 }
-          ],
-          executionTime: "125ms",
-          sessionId: Date.now().toString()
-        });
+          transcription: voiceResult.transcribedText || '',
+          executionTime: `${totalExecutionTime}ms`,
+          sessionId: sessionId,
+          intent: userIntent,
+          intentConfidence: voiceResult.intentConfidence || 0.5
+        };
+
+        // Add SQL data if requested
+        if (userIntent === 'sql' || userIntent === 'both') {
+          response.sql = queryResult?.queryExecuted || '';
+          response.results = results;
+          response.resultCount = results.length;
+        }
+
+        // Add image data if requested
+        if (userIntent === 'image' || userIntent === 'both') {
+          response.imagePrompt = voiceResult.imagePrompt || '';
+          response.generatedImageUrl = voiceResult.generatedImageUrl || '';
+        }
+
+        return c.json(response);
 
       } catch (error) {
+        console.error('Query processing error:', error);
+        console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
         return c.json({
           success: false,
-          error: 'Processing failed'
+          error: `Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
         }, 500);
       }
     });

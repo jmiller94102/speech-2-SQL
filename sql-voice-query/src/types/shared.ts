@@ -7,6 +7,8 @@ export interface QueryResponse {
   executionTime?: string;
   sessionId?: string;
   error?: string;
+  imagePrompt?: string;
+  generatedImageUrl?: string;
 }
 
 export interface HealthResponse {
