@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body, #__next {
+  height: 100%;
+}
+
+body {
+  @apply bg-background text-text;
+}
+
+/* Scrollbar styling */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: #1f2937;
+  border-radius: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.card {
+  @apply bg-card border border-border rounded-xl shadow-card;
+}
+
+.card-header {
+  @apply flex items-center justify-between p-4 border-b border-border text-sm text-text-muted;
+}
+
+.card-content {
+  @apply p-4;
+}

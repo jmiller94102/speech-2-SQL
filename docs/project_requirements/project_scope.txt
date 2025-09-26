@@ -1,0 +1,15 @@
+🚀 Structured PRD Prompt for Coding Agent
+
+Title: Hackathon Project – Multi-Agent Semantic SQL Voice Assistant
+
+1. Project Overview
+
+Create a hackathon-ready demo system that:
+
+Uses smartsql to store mock financial data (customers, products purchased, amounts, dates, etc.).
+
+Accepts user voice prompts via api input as mp3 
+
+run an agent that takes the mp3 transcribes whisper it, uses an lllm lama 70b to extract teh queestions and fire those off to smartsql 
+return should be both the result and the query it used. 
+

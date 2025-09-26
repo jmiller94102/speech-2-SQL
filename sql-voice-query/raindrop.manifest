@@ -1,0 +1,24 @@
+application "sql-voice-query" {
+
+  # API Gateway - Public HTTP service for MP3 uploads and voice processing
+  service "api-router" {
+    visibility = "public"
+  }
+
+  # Voice Processing Agent - Handles MP3 transcription and query generation
+  actor "voice-processor" {
+    visibility = "private"
+  }
+
+  # Database Manager - SmartSQL operations and financial data management
+  service "database-manager" {
+    visibility = "private"
+  }
+
+  # SmartSQL database for financial data with natural language queries
+  smartsql "financial-database" {}
+
+  # SmartMemory for conversation context and agent state
+  smartmemory "conversation-memory" {}
+
+}
