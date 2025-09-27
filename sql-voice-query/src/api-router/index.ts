@@ -89,7 +89,8 @@ export default class extends Service<Env> {
         }
 
         // Process audio with intelligent voice processing
-        const voiceProcessor = this.env.VOICE_PROCESSOR.get(sessionId as any);
+        const actorId = this.env.VOICE_PROCESSOR.idFromName(sessionId);
+        const voiceProcessor = this.env.VOICE_PROCESSOR.get(actorId);
         const voiceResult = await voiceProcessor.processAudio(audioBuffer, sessionId);
 
         if (!voiceResult.success) {

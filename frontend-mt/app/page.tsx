@@ -222,7 +222,30 @@ export default function Page() {
       if (res.success) {
         const parts: string[] = [];
         if (res.transcription) parts.push(`"${res.transcription}"`);
-        if (res.sql) parts.push(`SQL: ${res.sql}`);
+
+        // Display actual query results in a readable format
+        if (res.results && Array.isArray(res.results) && res.results.length > 0) {
+          parts.push(`\n📊 Results (${res.results.length} records):`);
+
+          // Format results as a simple table
+          res.results.slice(0, 5).forEach((row: any, index: number) => {
+            const rowData = Object.entries(row)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join(", ");
+            parts.push(`${index + 1}. ${rowData}`);
+          });
+
+          if (res.results.length > 5) {
+            parts.push(`... and ${res.results.length - 5} more records`);
+          }
+        } else if (res.results && res.results.length === 0) {
+          parts.push("📊 No results found");
+        }
+
+        if (res.sql) parts.push(`\n🔍 SQL: ${res.sql}`);
+        if (res.imagePrompt) parts.push(`🎨 Image: ${res.imagePrompt}`);
+        if (res.generatedImageUrl) parts.push(`🖼️ Generated image: ${res.generatedImageUrl}`);
+
         addLog("backend", parts.join("\n"));
       } else {
         const headerLines = res.responseHeaders

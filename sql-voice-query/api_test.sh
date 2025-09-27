@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-BASE_URL="https://svc-01k6400s2fbrvn8a8ngpr6h8jv.01k3973ws804nrh2fzmcqjcsvq.lmapp.run"
+BASE_URL="https://svc-01k648ebhpty0gae334q6gganv.01k3973ws804nrh2fzmcqjcsvq.lmapp.run"
 TEMP_DIR="/tmp/sql-voice-query-test"
 RESULTS_FILE="$TEMP_DIR/test_results.json"
 

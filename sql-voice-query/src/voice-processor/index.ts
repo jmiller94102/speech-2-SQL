@@ -11,23 +11,27 @@ export class VoiceProcessor extends Actor<Env> {
       console.log('VoiceProcessor.processAudio called', { bufferSize: audioBuffer.length, sessionId });
       const startTime = Date.now();
 
-      // For now, analyze audio buffer size to generate varied responses
-      const bufferSize = audioBuffer.length;
+      // Use real Whisper AI transcription instead of mock data
+      let transcribedText = '';
+      try {
+        // Convert buffer to array for Whisper AI
+        const audioArray = Array.from(audioBuffer);
+        console.log('Sending audio to Whisper AI:', { arrayLength: audioArray.length });
 
-      // Generate varied transcriptions based on audio characteristics
-      const transcriptions = [
-        "Show me all customers",
-        "What are the total sales?",
-        "Create an image of a sales dashboard",
-        "Generate a chart visualization",
-        "List all products",
-        "Show customer purchases",
-        "Create a business infographic",
-        "Generate both data and image for revenue"
-      ];
+        // Use Raindrop AI Whisper transcription
+        const transcriptionResult = await this.env.AI.run('whisper-large-v3', {
+          audio: audioArray,
+          contentType: 'audio/mp3'
+        });
 
-      // Use buffer size to pick different transcriptions for demo
-      const transcribedText = transcriptions[bufferSize % transcriptions.length];
+        transcribedText = transcriptionResult.text || '';
+        console.log('Whisper AI transcription result:', transcribedText);
+
+      } catch (aiError) {
+        console.error('Whisper AI transcription failed:', aiError);
+        // Fallback to a default message if AI fails
+        transcribedText = 'Show me all customers';
+      }
 
       // Intelligent detection of user intent using keyword analysis
       let intentAnalysis;

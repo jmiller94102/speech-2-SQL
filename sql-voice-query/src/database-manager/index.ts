@@ -1,5 +1,6 @@
 import { Service } from '@liquidmetal-ai/raindrop-framework';
 import { Env } from './raindrop.gen';
+import { insertMockData } from '../sql/financial-database';
 
 export default class extends Service<Env> {
   async fetch(request: Request): Promise<Response> {
@@ -17,6 +18,9 @@ export default class extends Service<Env> {
     try {
       const startTime = Date.now();
 
+      // Ensure mock data exists on first query
+      await this.ensureMockData();
+
       // Only generate SQL if intent is 'sql' or 'both'
       if (intent === 'image') {
         // Skip SQL generation for image-only requests
@@ -33,52 +37,61 @@ export default class extends Service<Env> {
         };
       }
 
-      // Generate SQL based on natural language - simplified for real data
+      // Generate SQL based on natural language and execute against real database
       let sqlQuery = '';
-      let mockResults = [];
 
       if (naturalQuery.toLowerCase().includes('customer')) {
-        sqlQuery = 'SELECT * FROM customers LIMIT 10';
-        mockResults = [
-          { id: 1, name: "John Doe", email: "john@example.com", total_spent: 1500.00, join_date: "2024-01-15" },
-          { id: 2, name: "Jane Smith", email: "jane@example.com", total_spent: 890.50, join_date: "2024-02-20" },
-          { id: 3, name: "Mike Johnson", email: "mike@example.com", total_spent: 2100.75, join_date: "2023-12-10" }
-        ];
+        sqlQuery = 'SELECT id, name, email, join_date, total_spent FROM customers ORDER BY total_spent DESC LIMIT 10';
       } else if (naturalQuery.toLowerCase().includes('product')) {
-        sqlQuery = 'SELECT * FROM products LIMIT 10';
-        mockResults = [
-          { id: 1, name: "Business Software", category: "Software", price: 299.99, stock_quantity: 50 },
-          { id: 2, name: "Analytics Dashboard", category: "Tools", price: 149.99, stock_quantity: 25 },
-          { id: 3, name: "Enterprise License", category: "Software", price: 999.99, stock_quantity: 10 }
-        ];
+        sqlQuery = 'SELECT id, name, category, price, launch_date FROM products ORDER BY price DESC LIMIT 10';
       } else if (naturalQuery.toLowerCase().includes('purchase') || naturalQuery.toLowerCase().includes('sales')) {
-        sqlQuery = 'SELECT * FROM purchases LIMIT 10';
-        mockResults = [
-          { id: 1, customer_id: 1, product_id: 1, quantity: 2, purchase_date: "2024-09-25", total_amount: 599.98 },
-          { id: 2, customer_id: 2, product_id: 2, quantity: 1, purchase_date: "2024-09-24", total_amount: 149.99 },
-          { id: 3, customer_id: 3, product_id: 3, quantity: 1, purchase_date: "2024-09-23", total_amount: 999.99 }
-        ];
+        sqlQuery = 'SELECT p.id, c.name as customer_name, pr.name as product_name, p.amount, p.purchase_date, p.quantity FROM purchases p JOIN customers c ON p.customer_id = c.id JOIN products pr ON p.product_id = pr.id ORDER BY p.purchase_date DESC LIMIT 10';
       } else if (naturalQuery.toLowerCase().includes('revenue') || naturalQuery.toLowerCase().includes('total')) {
-        sqlQuery = 'SELECT SUM(total_amount) as total_revenue, COUNT(*) as total_sales FROM purchases';
-        mockResults = [
-          { total_revenue: 15847.32, total_sales: 127, period: "September 2024" }
-        ];
+        sqlQuery = 'SELECT SUM(amount) as total_revenue, COUNT(*) as total_sales, COUNT(DISTINCT customer_id) as unique_customers FROM purchases';
       } else {
-        sqlQuery = 'SELECT * FROM customers LIMIT 5';
-        mockResults = [
-          { id: 1, name: "Sample Customer", email: "sample@example.com", total_spent: 750.00 }
-        ];
+        // Default to showing customers
+        sqlQuery = 'SELECT id, name, email, total_spent FROM customers ORDER BY total_spent DESC LIMIT 5';
       }
 
-      // Return query results with realistic business data
+      console.log('Executing SQL query:', sqlQuery);
+
+      // Execute the actual SQL query against SmartSQL database
+      const queryResult = await this.env.FINANCIAL_DATABASE.executeQuery({
+        sqlQuery: sqlQuery,
+        format: 'json'
+      });
+
+      console.log('SmartSQL result:', queryResult);
+
+      if (queryResult.status !== 200) {
+        throw new Error(queryResult.message || 'Database query failed');
+      }
+
+      // Parse the results from SmartSQL
+      let actualResults = [];
+      if (queryResult.results) {
+        try {
+          if (typeof queryResult.results === 'object' && 'jsonResults' in queryResult.results) {
+            actualResults = JSON.parse((queryResult.results as any).jsonResults);
+          } else if (typeof queryResult.results === 'string') {
+            actualResults = JSON.parse(queryResult.results);
+          } else {
+            actualResults = queryResult.results;
+          }
+        } catch (parseError) {
+          console.error('Failed to parse query results:', parseError);
+          actualResults = [];
+        }
+      }
+
       const executionTime = Date.now() - startTime;
 
       return {
         success: true,
         queryExecuted: sqlQuery,
-        results: JSON.stringify(mockResults),
+        results: JSON.stringify(actualResults),
         format: 'json' as const,
-        rowCount: mockResults.length,
+        rowCount: actualResults.length,
         executionTime,
         sessionId
       };
@@ -96,5 +109,94 @@ export default class extends Service<Env> {
 
   async healthCheck(): Promise<boolean> {
     return true;
+  }
+
+  private async ensureMockData(): Promise<void> {
+    try {
+      // First, ensure tables exist by creating them
+      await this.createTablesIfNotExist();
+
+      // Check if customers table has data
+      const checkResult = await this.env.FINANCIAL_DATABASE.executeQuery({
+        sqlQuery: 'SELECT COUNT(*) as count FROM customers',
+        format: 'json'
+      });
+
+      let customerCount = 0;
+      if (checkResult.status === 200 && checkResult.results) {
+        const results = typeof checkResult.results === 'string'
+          ? JSON.parse(checkResult.results)
+          : checkResult.results;
+        customerCount = results[0]?.count || 0;
+      }
+
+      // If no customers exist, insert mock data
+      if (customerCount === 0) {
+        console.log('No customers found, inserting mock data...');
+        const mockDataStatements = await insertMockData();
+
+        for (const statement of mockDataStatements) {
+          await this.env.FINANCIAL_DATABASE.executeQuery({
+            sqlQuery: statement,
+            format: 'json'
+          });
+        }
+
+        console.log('Mock data insertion completed');
+      }
+    } catch (error) {
+      console.error('Failed to ensure mock data:', error);
+      // Don't throw - let the query continue even if mock data fails
+    }
+  }
+
+  private async createTablesIfNotExist(): Promise<void> {
+    try {
+      console.log('Creating database tables if they do not exist...');
+
+      // Create customers table
+      await this.env.FINANCIAL_DATABASE.executeQuery({
+        sqlQuery: `CREATE TABLE IF NOT EXISTS customers (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          join_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+          total_spent DECIMAL(10,2) DEFAULT 0.00
+        )`,
+        format: 'json'
+      });
+
+      // Create products table
+      await this.env.FINANCIAL_DATABASE.executeQuery({
+        sqlQuery: `CREATE TABLE IF NOT EXISTS products (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          category TEXT NOT NULL,
+          price DECIMAL(10,2) NOT NULL,
+          launch_date DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`,
+        format: 'json'
+      });
+
+      // Create purchases table
+      await this.env.FINANCIAL_DATABASE.executeQuery({
+        sqlQuery: `CREATE TABLE IF NOT EXISTS purchases (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          customer_id INTEGER NOT NULL,
+          product_id INTEGER NOT NULL,
+          amount DECIMAL(10,2) NOT NULL,
+          purchase_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+          quantity INTEGER DEFAULT 1,
+          FOREIGN KEY (customer_id) REFERENCES customers(id),
+          FOREIGN KEY (product_id) REFERENCES products(id)
+        )`,
+        format: 'json'
+      });
+
+      console.log('Database tables created successfully');
+    } catch (error) {
+      console.error('Failed to create database tables:', error);
+      // Don't throw - let the process continue
+    }
   }
 }
