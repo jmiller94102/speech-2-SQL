@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://svc-01k6400s2fbrvn8a8ngpr6h8jv.01k3973ws804nrh2fzmcqjcsvq.lmapp.run";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://svc-01k6458q2q0dbfm7zqs4czyr1j.01k3973ws804nrh2fzmcqjcsvq.lmapp.run";
 
 export interface QueryResponse {
   success: boolean;
